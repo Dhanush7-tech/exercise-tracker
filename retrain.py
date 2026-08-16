@@ -59,7 +59,11 @@ def get_status():
         per_class[s["intended_exercise"]] = per_class.get(s["intended_exercise"], 0) + 1
 
     history = _load_history()
-    ready = len(per_class) >= MIN_CLASSES and all(c >= MIN_SAMPLES_PER_CLASS for c in per_class.values())
+    # Ready as soon as at least MIN_CLASSES exercises individually clear the
+    # per-class threshold -- a lone sparse/leftover exercise (e.g. 1-2 stray
+    # sets) must not block retraining on classes that are otherwise ready.
+    qualifying_classes = [ex for ex, n in per_class.items() if n >= MIN_SAMPLES_PER_CLASS]
+    ready = len(qualifying_classes) >= MIN_CLASSES
 
     return {
         "total_labeled_sets": len(labeled_sets),
@@ -70,14 +74,24 @@ def get_status():
         "history": history,
     }
 
-
 def _build_training_data():
-    """Pull every labeled set, re-derive its features, return (X, y)."""
+    """Pull every labeled set from exercises that meet the minimum sample
+    threshold, re-derive features, return (X, y). Sparse/leftover exercises
+    below the threshold are excluded -- including them risks a class with
+    too few members to stratify the train/test split, and isn't meaningful
+    to train on anyway."""
     labeled_sets = db.get_labeled_sets_with_readings()
+
+    per_class = {}
+    for s in labeled_sets:
+        per_class[s["intended_exercise"]] = per_class.get(s["intended_exercise"], 0) + 1
+    qualifying_classes = {ex for ex, n in per_class.items() if n >= MIN_SAMPLES_PER_CLASS}
 
     X_parts = []
     y_parts = []
     for s in labeled_sets:
+        if s["intended_exercise"] not in qualifying_classes:
+            continue
         readings = s["raw_readings"]
         df = pd.DataFrame(readings)
         df.index = pd.to_datetime(df["t"], unit="ms")
