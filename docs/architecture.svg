@@ -1,0 +1,135 @@
+<svg viewBox="0 0 1200 780" xmlns="http://www.w3.org/2000/svg" font-family="Space Grotesk, Inter, sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #12151C; }
+      .surface { fill: #191D27; stroke: #2A3040; stroke-width: 1.5; }
+      .surface2 { fill: #1F2430; stroke: #2A3040; stroke-width: 1.5; }
+      .accent { fill: #B8FF3D; }
+      .accent2 { fill: #5B8CFF; }
+      .title { fill: #EDEEF2; font-size: 15px; font-weight: 700; }
+      .label { fill: #EDEEF2; font-size: 13px; font-weight: 600; }
+      .sub { fill: #8A93A6; font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+      .arrow { stroke: #5B8CFF; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-accent { stroke: #B8FF3D; stroke-width: 2; fill: none; marker-end: url(#arrowhead-accent); }
+      .section-title { fill: #8A93A6; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#5B8CFF"/>
+    </marker>
+    <marker id="arrowhead-accent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#B8FF3D"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1200" height="780"/>
+
+  <text x="40" y="42" class="title" font-size="22">Exercise Tracker — System Architecture</text>
+  <text x="40" y="64" class="sub">wearable sensor data &#8594; ML classification &#8594; deployed, persisted web app</text>
+
+  <!-- ML Pipeline column -->
+  <text x="40" y="105" class="section-title">1. Model &amp; Feature Pipeline (offline)</text>
+  <rect x="40" y="118" width="270" height="150" rx="12" class="surface"/>
+  <text x="60" y="145" class="label">Training data</text>
+  <text x="60" y="163" class="sub">MetaMotion accel/gyro CSVs</text>
+  <text x="60" y="182" class="label">Feature engineering</text>
+  <text x="60" y="200" class="sub">low-pass filter, PCA, temporal +</text>
+  <text x="60" y="214" class="sub">frequency abstraction, KMeans</text>
+  <text x="60" y="245" class="label">RandomForest classifier</text>
+  <text x="60" y="263" class="sub">99.85% held-out participant acc.</text>
+
+  <rect x="40" y="288" width="270" height="70" rx="12" class="surface2"/>
+  <text x="60" y="312" class="label">Frozen artifacts</text>
+  <text x="60" y="332" class="sub">model.pkl · pca.pkl · kmeans.pkl</text>
+  <text x="60" y="346" class="sub">normalization stats</text>
+
+  <path class="arrow" d="M175 268 L175 288"/>
+
+  <!-- Synthetic data generator -->
+  <text x="40" y="405" class="section-title">2. Synthetic Data Generator</text>
+  <rect x="40" y="418" width="270" height="110" rx="12" class="surface"/>
+  <text x="60" y="444" class="label">synthetic_data.py</text>
+  <text x="60" y="464" class="sub">calibrated on real per-exercise</text>
+  <text x="60" y="478" class="sub">amplitude / axis / rep-cadence stats</text>
+  <text x="60" y="500" class="sub">100% classified correctly across</text>
+  <text x="60" y="514" class="sub">80 generated sets (verification)</text>
+
+  <!-- Inference pipeline -->
+  <text x="380" y="105" class="section-title">3. Inference Pipeline</text>
+  <rect x="380" y="118" width="280" height="410" rx="12" class="surface"/>
+  <text x="400" y="145" class="label">predict_model.py</text>
+
+  <rect x="400" y="160" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="182" class="sub">resample &#8594; 200ms epochs</text>
+
+  <rect x="400" y="204" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="226" class="sub">outlier removal (Chauvenet)</text>
+
+  <rect x="400" y="248" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="270" class="sub">low-pass filter (Butterworth)</text>
+
+  <rect x="400" y="292" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="314" class="sub">PCA + temporal/freq features</text>
+
+  <rect x="400" y="336" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="358" class="sub">KMeans clustering</text>
+
+  <rect x="400" y="380" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="402" class="sub">classify (majority vote/epoch)</text>
+
+  <rect x="400" y="424" width="240" height="36" rx="8" class="surface2"/>
+  <text x="415" y="446" class="sub">rep counting (peak detection)</text>
+
+  <text x="400" y="500" class="label">98.9% verified accuracy</text>
+  <text x="400" y="516" class="sub">across 91 real held-out sets</text>
+
+  <!-- Backend -->
+  <text x="700" y="105" class="section-title">4. Backend</text>
+  <rect x="700" y="118" width="230" height="200" rx="12" class="surface"/>
+  <text x="720" y="145" class="label">FastAPI (api.py)</text>
+  <text x="720" y="166" class="sub">POST /api/sessions</text>
+  <text x="720" y="184" class="sub">POST /api/generate-and-log</text>
+  <text x="720" y="202" class="sub">GET  /api/history</text>
+  <text x="720" y="220" class="sub">GET  /api/analytics</text>
+  <text x="720" y="238" class="sub">GET  / (serves dashboard)</text>
+
+  <rect x="720" y="256" width="190" height="42" rx="8" class="surface2"/>
+  <text x="735" y="282" class="sub">db.py — auto-switches</text>
+
+  <rect x="700" y="338" width="230" height="90" rx="12" class="surface2"/>
+  <circle cx="722" cy="368" r="5" class="accent"/>
+  <text x="738" y="373" class="label" font-size="12">Postgres (Neon)</text>
+  <text x="720" y="392" class="sub">production — persists across</text>
+  <text x="720" y="406" class="sub">redeploys and restarts</text>
+
+  <!-- Frontend -->
+  <text x="970" y="105" class="section-title">5. Frontend</text>
+  <rect x="970" y="118" width="190" height="200" rx="12" class="surface"/>
+  <text x="990" y="145" class="label">Dashboard (static/)</text>
+  <text x="990" y="168" class="sub">Create a test dataset</text>
+  <text x="990" y="186" class="sub">History table</text>
+  <text x="990" y="204" class="sub">Analytics + charts</text>
+  <text x="990" y="228" class="sub" font-size="10">HTML / CSS / vanilla JS</text>
+  <text x="990" y="242" class="sub" font-size="10">Chart.js for visualizations</text>
+
+  <!-- Deployment -->
+  <text x="700" y="465" class="section-title">6. Deployment</text>
+  <rect x="700" y="478" width="230" height="90" rx="12" class="surface"/>
+  <text x="720" y="504" class="label" font-size="12">Docker + Render</text>
+  <text x="720" y="524" class="sub">Dockerfile, docker-compose.yml</text>
+  <text x="720" y="540" class="sub">live: onrender.com URL</text>
+  <text x="720" y="556" class="sub">GitHub-connected auto-deploy</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M310 220 L380 220" />
+  <path class="arrow" d="M310 470 L380 380" />
+  <path class="arrow" d="M660 320 L700 220" />
+  <path class="arrow" d="M815 318 L815 338" />
+  <path class="arrow" d="M930 218 L970 218" />
+  <path class="arrow-accent" d="M815 428 L815 478" />
+  <path class="arrow" d="M815 568 L815 598" />
+
+  <!-- Footer -->
+  <rect x="40" y="598" width="1120" height="1" fill="#2A3040"/>
+  <text x="40" y="630" class="sub">Local dev: docker compose up (SQLite fallback if DATABASE_URL unset)</text>
+  <text x="40" y="648" class="sub">Production: same image, DATABASE_URL points at Neon Postgres — one codebase, two environments</text>
+</svg>

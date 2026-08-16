@@ -1,71 +1,69 @@
-# Exercise Tracker — Full Dashboard (Synthetic Data Edition)
+# Exercise Tracker
 
-A local web app: generate synthetic-but-realistic wearable sensor readings for
-a chosen exercise/sets/reps, run them through the full ML pipeline
-(preprocessing -> filtering -> feature engineering -> classification -> rep
-counting), and track results in a SQLite-backed history/analytics dashboard.
+An end-to-end machine learning application that classifies barbell exercises
+and counts reps from wearable sensor data — trained, packaged, deployed, and
+backed by a persistent database.
 
-Since a live sensor isn't connected, "Create a test dataset" generates new
-readings calibrated on real per-exercise signal statistics (amplitude,
-dominant axes, rep cadence) from the original training data — genuinely new
-data, not copies of any training example — so you can demonstrate the whole
-pipeline end-to-end.
+**Live demo:** https://exercise-tracker-sr2d.onrender.com
+*(free-tier hosting — the first request after idle time can take 30–50s to wake up)*
 
-## Run with Docker (recommended — this is what actually gets deployed)
+![Dashboard screenshot](docs/screenshot-dashboard.png)
+
+## What it does
+
+Given accelerometer + gyroscope readings from a wearable sensor, the model
+identifies which of six barbell exercises was performed (bench press,
+deadlift, overhead press, row, squat, or rest) and counts the reps in that
+set. Since a live sensor isn't connected to the deployed app, "Create a test
+dataset" generates new sensor readings — calibrated on real per-exercise
+signal statistics (amplitude, dominant axes, rep cadence), not copied from
+the training data — so the full pipeline can be demonstrated on genuinely
+unseen data.
+
+**Verified results, not just claimed:**
+- 99.85% accuracy on a held-out participant the model never trained on
+- 98.9% accuracy across 91 real recorded sets run through the full inference pipeline
+- 100% accuracy across 80 synthetically generated sets spanning all 6 exercises
+
+## Architecture
+
+![Architecture diagram](docs/architecture.svg)
+
+The pipeline: raw sensor data → outlier removal → low-pass filtering → PCA +
+temporal/frequency feature extraction → clustering → RandomForest
+classification → peak-detection rep counting. The same feature-engineering
+artifacts (fitted PCA, KMeans, normalization stats) used in training are
+frozen and reused at inference time, so new data lands in the exact feature
+space the model was trained on.
+
+## Tech stack
+
+| Layer | Tools |
+|---|---|
+| Model | scikit-learn (RandomForest), scipy (signal processing), pandas/numpy |
+| Backend | FastAPI, Python |
+| Database | PostgreSQL (Neon) in production, SQLite for local dev — auto-switches via `DATABASE_URL` |
+| Frontend | HTML / CSS / vanilla JS, Chart.js |
+| Deployment | Docker, Render (auto-deploys from GitHub) |
+
+## Run it locally
+
 ```bash
 docker compose up --build
 ```
-Then open **http://127.0.0.1:8000/**. Data persists in a named Docker volume
-(`workout_data`) across restarts, unlike running `workout.db` directly on disk.
+Open http://127.0.0.1:8000/. Uses SQLite by default — no setup required.
 
-To run without compose:
-```bash
-docker build -t exercise-tracker .
-docker run -p 8000:8000 -v exercise_tracker_data:/app/data exercise-tracker
+To use Postgres locally instead, create a `.env` file with:
+```
+DATABASE_URL=postgresql://user:password@host/dbname
 ```
 
-## Run locally without Docker
-```bash
-pip install -r requirements.txt
-uvicorn api:app --reload --port 8000
-```
+Full setup, deployment, and API details are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
-## Deploying to a live URL
-The Dockerfile is host-agnostic and respects `$PORT`, so it works as-is on:
-- **Render** — "New Web Service" → connect repo → it detects the Dockerfile automatically. Add a persistent disk mounted at `/app/data` if you want the SQLite DB to survive redeploys (Render's free tier disk is ephemeral otherwise).
-- **Railway** — "New Project" → "Deploy from Dockerfile" → same disk caveat applies.
-- **Fly.io** — `fly launch` detects the Dockerfile; use `fly volumes create` + mount at `/app/data` for persistence.
+## Project background
 
-For anything beyond a demo, swap SQLite for a managed Postgres instance (Render/Railway both offer free Postgres) — `db.py` would need its `sqlite3` calls replaced with a Postgres driver, which is a natural next step once you're deploying for real.
-
-
-## Use it
-Open **http://127.0.0.1:8000/** in your browser.
-
-1. **Create a test dataset** — name a session, click "New session," pick an
-   exercise, choose number of sets and reps per set, click "Generate & run
-   through model." Each generated set is preprocessed, filtered,
-   feature-engineered, classified, and rep-counted, then saved.
-2. **History** — every generated set, with intended vs. predicted exercise.
-3. **Analytics** — reps per day, sets per exercise, and overall accuracy
-   (how often the model's prediction matched the exercise you generated).
-
-Data persists in `workout.db` (SQLite) between restarts. Delete that file to
-reset everything.
-
-## How the synthetic data works (`synthetic_data.py`)
-For each exercise, real training data was used to calibrate: mean sensor
-level, oscillation amplitude, which axes move most, and typical seconds per
-rep. A new set is built as a rep-cadence oscillation (fundamental + a touch
-of 2nd harmonic, slight rep-to-rep variation, start/end ramp) plus sensor
-noise — grounded in real movement signatures but not copied from any real
-recording. Verified: 100% correct classification across 80 generated sets
-(all 6 exercises, multiple seeds/rep counts).
-
-## Files
-- `api.py` — FastAPI app: sessions / generate-and-log / history / analytics endpoints + serves the dashboard
-- `synthetic_data.py` — calibrated synthetic sensor-reading generator
-- `predict_model.py` — the inference pipeline (preprocessing through prediction)
-- `db.py` — SQLite persistence (sessions + sets tables)
-- `models/` — frozen model + fitted transformers
-- `static/` — the dashboard (index.html, styles.css, app.js)
+Built on top of the ["Tracking Barbell Exercises"](https://github.com/Dhanush7-tech/Exercise-Tracker)
+data science pipeline (data ingestion, feature engineering, model training/evaluation).
+This repo takes that trained model the rest of the way: a real inference
+pipeline, an API, a database-backed dashboard, containerization, and a live
+deployment — the parts that turn a trained model into a working application.
