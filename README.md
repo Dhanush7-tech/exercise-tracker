@@ -64,7 +64,7 @@ accuracy came out to **99.85%**.
 
 *(This research pipeline — data ingestion, feature engineering, model
 training/evaluation, notebooks — lives in a separate repo:
-[Exercise-Tracker-Model-Scratch]((https://github.com/Dhanush7-tech/Exercise-Tracker-Model-Scratch))*
+[Exercise-Tracker-Model-Scratch](https://github.com/Dhanush7-tech/Exercise-Tracker-Model-Scratch)
 
 ### From trained model to working application (this repo)
 
