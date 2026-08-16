@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reps &mdash; Exercise Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">●</span>
+      <span class="brand-name">REPS</span>
+    </div>
+    <div class="nav-links">
+      <button class="nav-link active" data-view="log">
+        <span class="nav-index">01</span> Log a set
+      </button>
+      <button class="nav-link" data-view="history">
+        <span class="nav-index">02</span> History
+      </button>
+      <button class="nav-link" data-view="analytics">
+        <span class="nav-index">03</span> Analytics
+      </button>
+    </div>
+    <div class="sidebar-foot">
+      <div class="pulse-bars" id="sidebarPulse" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="model-tag">RandomForest &middot; 99.85% held-out acc.</div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Stat strip -->
+    <section class="stat-strip" id="statStrip">
+      <div class="stat">
+        <div class="stat-value" id="statSets">&mdash;</div>
+        <div class="stat-label">Sets logged</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statReps">&mdash;</div>
+        <div class="stat-label">Total reps</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statSessions">&mdash;</div>
+        <div class="stat-label">Sessions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statAccuracy">&mdash;</div>
+        <div class="stat-label">Predicted = intended</div>
+      </div>
+    </section>
+
+    <!-- VIEW: Create dataset -->
+    <section class="view active" id="view-log">
+      <header class="view-header">
+        <h1>Create a test dataset</h1>
+        <p>Pick an exercise, how many sets, and reps per set. Sensor readings are synthesized &mdash;
+           calibrated on real movement signatures, but not copied from the training data &mdash;
+           then run through preprocessing, filtering, feature engineering, and prediction, same as
+           a real recording would be.</p>
+      </header>
+
+      <div class="log-grid">
+        <form class="card form-card" id="logForm">
+          <div class="field">
+            <label for="sessionLabel">Session</label>
+            <div class="row">
+              <input type="text" id="sessionLabel" placeholder="e.g. Synthetic test batch" />
+              <button type="button" class="btn btn-ghost" id="newSessionBtn">New session</button>
+            </div>
+            <div class="hint" id="sessionHint">No active session &mdash; create one to start generating.</div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="intendedExercise">Exercise</label>
+              <select id="intendedExercise">
+                <option value="">Choose an exercise</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="numSets">Number of sets</label>
+              <input type="number" id="numSets" min="1" max="20" value="3" />
+            </div>
+            <div class="field">
+              <label for="targetReps">Reps per set</label>
+              <input type="number" id="targetReps" min="1" max="30" value="10" />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="gen-preview" id="genPreview">
+              <div class="pulse-bars" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="gen-preview-text" id="genPreviewText">
+                Pick an exercise, sets, and reps, then generate.
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+            Generate &amp; run through model
+          </button>
+          <div class="error-msg" id="formError"></div>
+        </form>
+
+        <div class="card result-card" id="resultCard">
+          <div class="result-empty" id="resultEmpty">
+            <div class="pulse-bars pulse-bars-lg" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p>Results appear here once a batch is generated.</p>
+          </div>
+          <div class="result-body" id="resultBody" hidden>
+            <div class="result-top">
+              <div>
+                <div class="result-eyebrow" id="resultEyebrow">Generated sets</div>
+                <div class="result-exercise" id="resultExercise">&mdash;</div>
+              </div>
+              <div class="match-badge" id="matchBadge" hidden></div>
+            </div>
+            <div class="result-metrics">
+              <div class="metric">
+                <div class="metric-value" id="resultReps">&mdash;</div>
+                <div class="metric-label">Avg. reps</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value" id="resultConfidence">&mdash;</div>
+                <div class="metric-label">Avg. confidence</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value" id="resultEpochs">&mdash;</div>
+                <div class="metric-label">Sets correct</div>
+              </div>
+            </div>
+            <div class="confidence-bar-track">
+              <div class="confidence-bar-fill" id="confidenceBarFill"></div>
+            </div>
+            <div class="set-by-set" id="setBySet"></div>
+            <div class="result-note">Every generated set is saved to your history and included in analytics.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW: History -->
+    <section class="view" id="view-history">
+      <header class="view-header">
+        <h1>History</h1>
+        <p>Every set you've logged, most recent first.</p>
+      </header>
+      <div class="card table-card">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Logged</th>
+              <th>Session</th>
+              <th>Set</th>
+              <th>Intended</th>
+              <th>Predicted</th>
+              <th>Reps</th>
+              <th>Confidence</th>
+              <th>Match</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="8" class="empty-row">No sets logged yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VIEW: Analytics -->
+    <section class="view" id="view-analytics">
+      <header class="view-header">
+        <h1>Analytics</h1>
+        <p>How your logged sets break down over time and by exercise.</p>
+      </header>
+
+      <div class="analytics-grid">
+        <div class="card chart-card">
+          <div class="card-title">Reps by day</div>
+          <canvas id="repsByDayChart" height="180"></canvas>
+        </div>
+        <div class="card chart-card">
+          <div class="card-title">Sets by exercise</div>
+          <canvas id="setsByExerciseChart" height="180"></canvas>
+        </div>
+      </div>
+      <div class="card table-card">
+        <div class="card-title">Exercise breakdown</div>
+        <table class="log-table">
+          <thead>
+            <tr><th>Exercise</th><th>Sets</th><th>Total reps</th><th>Avg. confidence</th></tr>
+          </thead>
+          <tbody id="exerciseBreakdownBody">
+            <tr><td colspan="4" class="empty-row">Nothing logged yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

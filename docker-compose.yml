@@ -1,0 +1,14 @@
+services:
+  exercise-tracker:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - workout_data:/app/data
+    environment:
+      - PORT=8000
+    env_file:
+      - .env
+
+volumes:
+  workout_data:

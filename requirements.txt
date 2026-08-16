@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pandas>=1.5
+numpy>=1.23
+scipy>=1.9
+scikit-learn>=1.2
+joblib>=1.2
+python-multipart>=0.0.9
+psycopg2-binary>=2.9
