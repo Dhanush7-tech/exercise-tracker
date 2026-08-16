@@ -26,6 +26,7 @@ from typing import Optional
 import predict_model as pm
 import db
 import synthetic_data as sd
+import retrain as rt
 
 warnings.filterwarnings("ignore")
 
@@ -93,6 +94,17 @@ def _df_from_csv_bytes(raw_bytes: bytes) -> pd.DataFrame:
         df.index = pd.date_range("2000-01-01", periods=len(df), freq="200ms")
 
     return df[pm.REQUIRED_RAW_COLUMNS]
+
+
+def _df_to_raw_readings(df):
+    """Serialize a raw sensor DataFrame (DatetimeIndex + 6 columns) into a
+    JSON-friendly list of dicts, for storage as new labeled training data."""
+    out = df.reset_index()
+    out.columns = ["t"] + list(pm.REQUIRED_RAW_COLUMNS)
+    # Unit-agnostic ms-since-epoch conversion (works regardless of the
+    # DataFrame's internal datetime64 resolution, which varies by pandas version)
+    out["t"] = ((out["t"] - pd.Timestamp("1970-01-01")) / pd.Timedelta(milliseconds=1)).astype("int64")
+    return out.to_dict(orient="records")
 
 
 @app.get("/")
@@ -208,6 +220,7 @@ def generate_and_log(payload: GenerateRequest):
             confidence=result["confidence"],
             n_epochs_used=result["n_epochs_used"],
             filename=f"synthetic_{payload.exercise}_set{set_number}.csv",
+            raw_readings=_df_to_raw_readings(df),
         )
         results.append({
             "id": set_id,
@@ -223,7 +236,6 @@ def generate_and_log(payload: GenerateRequest):
         })
 
     return {"session_id": payload.session_id, "generated": results}
-
 
 @app.get("/api/generate-preview-csv")
 def generate_preview_csv(exercise: str, reps: int, seed: Optional[int] = None):
@@ -248,3 +260,19 @@ def history(limit: int = 200):
 @app.get("/api/analytics")
 def analytics():
     return db.get_analytics()
+
+
+@app.get("/api/retrain/status")
+def retrain_status():
+    return rt.get_status()
+
+
+@app.post("/api/retrain")
+def trigger_retrain():
+    try:
+        result = rt.retrain()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Retrain failed: {e}")
+    return result

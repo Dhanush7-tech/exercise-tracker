@@ -6,9 +6,12 @@ Persistence layer for the Exercise Tracker app.
   uses Postgres, so history/analytics survive redeploys and restarts.
 
 Every uploaded/generated set gets logged here, which becomes the app's
-growing workout history / dataset.
+growing workout history / dataset. Sets logged with a known intended_exercise
+also store their raw sensor readings (as JSON), which the retraining pipeline
+uses as new labeled training examples.
 """
 import os
+import json
 from datetime import datetime, timezone
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -66,7 +69,8 @@ def init_db():
                 n_epochs_used INTEGER,
                 match INTEGER,
                 filename TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                raw_readings TEXT
             )
         """)
     else:
@@ -91,12 +95,23 @@ def init_db():
                 match INTEGER,
                 filename TEXT,
                 created_at TEXT NOT NULL,
+                raw_readings TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions (id)
             )
         """)
 
     conn.commit()
     conn.close()
+
+    # Best-effort migration for databases created before raw_readings existed
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE sets ADD COLUMN raw_readings TEXT")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def create_session(label):
@@ -117,10 +132,13 @@ def create_session(label):
 
 
 def log_set(session_id, set_number, intended_exercise, target_reps,
-            predicted_exercise, predicted_reps, confidence, n_epochs_used, filename):
+            predicted_exercise, predicted_reps, confidence, n_epochs_used, filename,
+            raw_readings=None):
     match = None
     if intended_exercise:
         match = 1 if intended_exercise == predicted_exercise else 0
+
+    raw_json = json.dumps(raw_readings) if raw_readings is not None else None
 
     conn = get_conn()
     cur = conn.cursor()
@@ -129,12 +147,12 @@ def log_set(session_id, set_number, intended_exercise, target_reps,
     sql = """
         INSERT INTO sets (session_id, set_number, intended_exercise, target_reps,
                            predicted_exercise, predicted_reps, confidence, n_epochs_used,
-                           match, filename, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           match, filename, created_at, raw_readings)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     params = (session_id, set_number, intended_exercise, target_reps,
               predicted_exercise, predicted_reps, confidence, n_epochs_used,
-              match, filename, now)
+              match, filename, now, raw_json)
 
     if IS_POSTGRES:
         cur.execute(_q(sql + " RETURNING id"), params)
@@ -161,6 +179,27 @@ def get_history(limit=200):
     rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_labeled_sets_with_readings():
+    """Sets that have both a known intended_exercise (ground-truth label) and
+    stored raw readings — i.e. usable as new labeled training examples."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, intended_exercise, raw_readings, created_at
+        FROM sets
+        WHERE intended_exercise IS NOT NULL AND raw_readings IS NOT NULL
+        ORDER BY created_at ASC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["raw_readings"] = json.loads(d["raw_readings"])
+        result.append(d)
+    return result
 
 
 def get_analytics():

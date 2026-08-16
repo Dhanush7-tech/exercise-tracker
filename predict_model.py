@@ -207,6 +207,21 @@ def _count_reps(df_lowpass_full, exercise_label):
     return int(len(indexes[0]))
 
 
+def extract_features(df_raw):
+    """
+    Runs the full preprocessing/feature-engineering pipeline (resample, outlier
+    removal, low-pass filter, PCA, temporal/frequency features, clustering) and
+    returns the epoch-level feature matrix (same columns/order the classifier
+    expects), without running prediction. Used both by predict() and by the
+    retraining pipeline, so training and inference always see identically
+    engineered features.
+    """
+    df_resampled = _resample_to_200ms(df_raw)
+    df_clean = _remove_outliers(df_resampled)
+    _, df_feat = _build_features(df_clean)
+    return df_feat[_feature_columns]
+
+
 def predict(df_raw):
     """
     df_raw: DataFrame with DatetimeIndex and columns acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z

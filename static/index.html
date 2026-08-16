@@ -28,6 +28,9 @@
       <button class="nav-link" data-view="analytics">
         <span class="nav-index">03</span> Analytics
       </button>
+      <button class="nav-link" data-view="model">
+        <span class="nav-index">04</span> Model
+      </button>
     </div>
     <div class="sidebar-foot">
       <div class="pulse-bars" id="sidebarPulse" aria-hidden="true">
@@ -206,6 +209,80 @@
           </thead>
           <tbody id="exerciseBreakdownBody">
             <tr><td colspan="4" class="empty-row">Nothing logged yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VIEW: Model / Retrain -->
+    <section class="view" id="view-model">
+      <header class="view-header">
+        <h1>Model</h1>
+        <p>Every set logged with a known exercise becomes a new labeled training example.
+           Retrain on everything collected so far, and compare the new model against
+           the currently active one on the same held-out data.</p>
+      </header>
+
+      <div class="domain-note">
+        <strong>Heads up:</strong> this is a small-scale, illustrative retraining loop —
+        useful for seeing the mechanism work, not a replacement for the original,
+        much larger and more rigorously validated training pipeline. Early on, with few
+        accumulated samples, results will be noisy; that's expected.
+      </div>
+
+      <div class="log-grid">
+        <div class="card form-card">
+          <div class="card-title">Accumulated labeled data</div>
+          <div id="retrainStatusBody">
+            <p class="hint">Loading…</p>
+          </div>
+          <button type="button" class="btn btn-primary" id="retrainBtn" disabled>
+            Retrain on accumulated data
+          </button>
+          <div class="error-msg" id="retrainError"></div>
+        </div>
+
+        <div class="card result-card" id="retrainResultCard">
+          <div class="result-empty" id="retrainResultEmpty">
+            <div class="pulse-bars pulse-bars-lg" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p>Retrain results appear here.</p>
+          </div>
+          <div class="result-body" id="retrainResultBody" hidden>
+            <div class="result-top">
+              <div>
+                <div class="result-eyebrow">Model version</div>
+                <div class="result-exercise" id="retrainVersion">&mdash;</div>
+              </div>
+            </div>
+            <div class="result-metrics">
+              <div class="metric">
+                <div class="metric-value" id="retrainBeforeAcc">&mdash;</div>
+                <div class="metric-label">Before (current model)</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value" id="retrainAfterAcc">&mdash;</div>
+                <div class="metric-label">After (retrained)</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value" id="retrainNSamples">&mdash;</div>
+                <div class="metric-label">Training samples</div>
+              </div>
+            </div>
+            <div class="result-note">New model is now live for predictions in this session.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card table-card" style="margin-top: 20px;">
+        <div class="card-title">Retrain history</div>
+        <table class="log-table">
+          <thead>
+            <tr><th>Version</th><th>When</th><th>Before acc.</th><th>After acc.</th><th>Sets used</th></tr>
+          </thead>
+          <tbody id="retrainHistoryBody">
+            <tr><td colspan="5" class="empty-row">No retrains yet.</td></tr>
           </tbody>
         </table>
       </div>

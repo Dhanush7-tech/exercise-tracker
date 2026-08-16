@@ -13,6 +13,7 @@ document.querySelectorAll(".nav-link").forEach((btn) => {
     document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
     if (btn.dataset.view === "history") loadHistory();
     if (btn.dataset.view === "analytics") loadAnalytics();
+    if (btn.dataset.view === "model") loadRetrainStatus();
   });
 });
 
@@ -290,3 +291,85 @@ function chartOptions() {
 loadExercises();
 refreshStats();
 updatePreviewText();
+
+// ================= MODEL / RETRAIN =================
+
+async function loadRetrainStatus() {
+  const statusBody = document.getElementById("retrainStatusBody");
+  const retrainBtn = document.getElementById("retrainBtn");
+  try {
+    const res = await fetch(`${API}/api/retrain/status`);
+    const data = await res.json();
+
+    const perExercise = Object.entries(data.sets_per_exercise);
+    if (!perExercise.length) {
+      statusBody.innerHTML = `<p class="hint">No labeled sets yet. Generate some sets in "Create a test dataset" first — each one with an exercise picked becomes training data here.</p>`;
+    } else {
+      statusBody.innerHTML = `
+        <p class="hint">${data.total_labeled_sets} labeled set(s) collected so far:</p>
+        <div class="set-by-set">
+          ${perExercise.map(([ex, n]) => `
+            <div class="set-row ${n >= data.min_samples_per_class_required ? "set-row-ok" : ""}">
+              <span class="tag-exercise">${ex}</span><span>${n} set(s)</span>
+              <span>${n >= data.min_samples_per_class_required ? "ready" : `need ${data.min_samples_per_class_required - n} more`}</span><span></span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    retrainBtn.disabled = !data.ready_to_retrain;
+    renderRetrainHistory(data.history);
+  } catch (e) {
+    statusBody.innerHTML = `<p class="hint">Could not load status.</p>`;
+  }
+}
+
+function renderRetrainHistory(history) {
+  const tbody = document.getElementById("retrainHistoryBody");
+  if (!history.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-row">No retrains yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = history.slice().reverse().map((h) => `
+    <tr>
+      <td>v${h.version}</td>
+      <td>${new Date(h.timestamp).toLocaleString()}</td>
+      <td>${h.before_accuracy !== null ? Math.round(h.before_accuracy * 100) + "%" : "—"}</td>
+      <td>${Math.round(h.after_accuracy * 100)}%</td>
+      <td>${h.total_labeled_sets_used}</td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("retrainBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("retrainBtn");
+  const errorEl = document.getElementById("retrainError");
+  errorEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Retraining…";
+
+  try {
+    const res = await fetch(`${API}/api/retrain`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Retrain failed.");
+    }
+    const result = await res.json();
+
+    document.getElementById("retrainResultEmpty").hidden = true;
+    document.getElementById("retrainResultBody").hidden = false;
+    document.getElementById("retrainVersion").textContent = `v${result.version}`;
+    document.getElementById("retrainBeforeAcc").textContent =
+      result.before_accuracy !== null ? `${Math.round(result.before_accuracy * 100)}%` : "—";
+    document.getElementById("retrainAfterAcc").textContent = `${Math.round(result.after_accuracy * 100)}%`;
+    document.getElementById("retrainNSamples").textContent = result.n_training_samples;
+
+    loadRetrainStatus();
+  } catch (err) {
+    errorEl.textContent = err.message;
+  } finally {
+    btn.textContent = "Retrain on accumulated data";
+    loadRetrainStatus();
+  }
+});
