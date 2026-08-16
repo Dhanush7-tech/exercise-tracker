@@ -27,6 +27,69 @@ unseen data.
 - 98.9% accuracy across 91 real recorded sets run through the full inference pipeline
 - 100% accuracy across 80 synthetically generated sets spanning all 6 exercises
 
+## The full story: from raw sensor data to a deployed app
+
+**The problem.** Wearables can record motion, but raw accelerometer/gyroscope
+numbers don't tell you what exercise someone did or how many reps they got.
+This project builds that missing layer: given a stream of sensor readings,
+identify the exercise and count the reps.
+
+**The dataset.** Five participants performed barbell exercises — bench press,
+deadlift, overhead press, barbell row, and squat — plus a "rest" class, across
+heavy and medium weight categories, wearing a MetaMotion wrist sensor
+(accelerometer at 12.5Hz, gyroscope at 25Hz). 187 raw sensor recordings in total.
+
+**Cleaning and feature engineering.** Raw sensor data is noisy and irregularly
+sampled, so before any model could learn from it:
+- Resampled to a consistent 200ms interval
+- Outliers removed via Chauvenet's criterion
+- A Butterworth low-pass filter applied to smooth sensor noise while
+  preserving the actual movement signal
+- PCA to compress the 6 raw axes into their dominant components
+- Temporal features (rolling mean/std over each axis) to capture motion
+  trends over time
+- Frequency features (FFT-based) to capture the rhythmic, periodic nature
+  of a repeated lift
+- KMeans clustering added as an extra engineered feature
+
+**Model selection.** Multiple algorithms (Neural Network, Random Forest,
+KNN, Decision Tree, Naive Bayes) were compared via grid search with forward
+feature selection. Random Forest was the strongest performer.
+
+**Results — validated the honest way.** A naive random train/test split
+scored 99.9%, but that's inflated: overlapping sensor windows leak between
+train and test. The number that actually matters is testing on a
+**participant the model never saw during training** — held-out-participant
+accuracy came out to **99.85%**.
+
+*(This research pipeline — data ingestion, feature engineering, model
+training/evaluation, notebooks — lives in a separate repo:
+[Exercise-Tracker-Model-Scratch](https://github.com/Dhanush7-tech/Exercise-Tracker).)*
+
+### From trained model to working application (this repo)
+
+A trained model sitting in a notebook isn't a product. Getting from there to
+what's actually deployed here meant:
+- **A real inference pipeline** (`predict_model.py`) — the exact same
+  preprocessing/feature-engineering steps, frozen and reused on new data,
+  since the original pipeline re-fit its transformers on the full dataset
+  every run, which doesn't work for a single new prediction. Verified at
+  98.9% accuracy across 91 real recorded sets run through it end-to-end.
+- **A synthetic data generator** (`synthetic_data.py`) — since a live sensor
+  isn't attached to the deployed app, this generates new sensor readings
+  calibrated on real per-exercise signal statistics (not copied from
+  training data) to demonstrate the pipeline on genuinely unseen input.
+  Verified at 100% across 80 generated sets.
+- **A FastAPI backend + Postgres/SQLite database** — sessions, logged sets,
+  history, analytics.
+- **A retraining loop** (`retrain.py`) — logged data can become new labeled
+  training examples; retraining evaluates the new model against the current
+  one on held-out data before promoting it.
+- **Docker + a live deployment** on Render, connected to GitHub for
+  auto-deploy.
+- **A pytest suite + GitHub Actions CI** — caught and helped fix a real bug
+  in the retraining logic before it reached production.
+
 ## Architecture
 
 ![Architecture diagram](docs/architecture.svg)
@@ -61,11 +124,3 @@ DATABASE_URL=postgresql://user:password@host/dbname
 ```
 
 Full setup, deployment, and API details are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
-
-## Project background
-
-Built on top of the ["Tracking Barbell Exercises"](https://github.com/Dhanush7-tech/Exercise-Tracker)
-data science pipeline (data ingestion, feature engineering, model training/evaluation).
-This repo takes that trained model the rest of the way: a real inference
-pipeline, an API, a database-backed dashboard, containerization, and a live
-deployment — the parts that turn a trained model into a working application.
