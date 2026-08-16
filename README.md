@@ -4,6 +4,8 @@ An end-to-end machine learning application that classifies barbell exercises
 and counts reps from wearable sensor data — trained, packaged, deployed, and
 backed by a persistent database.
 
+![Tests](https://github.com/Dhanush7-tech/exercise-tracker/actions/workflows/tests.yml/badge.svg)
+
 **Live demo:** https://exercise-tracker-sr2d.onrender.com
 *(free-tier hosting — the first request after idle time can take 30–50s to wake up)*
 

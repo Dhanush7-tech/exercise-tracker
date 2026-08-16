@@ -19,6 +19,24 @@ pip install -r requirements.txt
 uvicorn api:app --reload --port 8000
 ```
 
+## Testing
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+Tests run against an isolated, temporary SQLite database (never your real
+Postgres data) and an isolated copy of the model directory for retraining
+tests (never the real, shipped model files). This same suite runs
+automatically on every push via GitHub Actions — see `.github/workflows/tests.yml`.
+
+Covers: synthetic data generation, the full inference pipeline (prediction
+correctness across all 6 exercises, feature extraction consistency, error
+handling on malformed/too-short input), the database layer (session/set
+logging, match-flag computation, analytics aggregation), the retraining
+pipeline (readiness checks, end-to-end retrain, hot-swap verification), and
+the API endpoints (session creation, generate-and-log, history, analytics,
+retrain status).
+
 ## Database: SQLite locally, Postgres in production
 `db.py` auto-detects which to use via the `DATABASE_URL` environment variable:
 - **Not set** → SQLite file.
@@ -55,6 +73,25 @@ that's exactly why Postgres (not SQLite) backs the production deployment.
 | `POST` | `/api/generate-and-log` | Generate synthetic sensor data for N sets, run through the model, log results |
 | `GET` | `/api/history` | All logged sets |
 | `GET` | `/api/analytics` | Aggregate stats: totals, per-exercise breakdown, accuracy, reps-by-day |
+| `POST` | `/api/log-live-set` | Accepts real accelerometer/gyroscope readings captured live via a phone's browser (DeviceMotion API), runs them through the same pipeline, logs the result |
+
+## Live capture (real sensor data)
+The "Live capture" tab uses the browser's `DeviceMotion` API to read a
+phone's actual accelerometer and gyroscope, buffers readings while recording,
+and sends them to `/api/log-live-set` on stop. The backend resamples
+whatever irregular sampling rate the phone provides (commonly ~30-60Hz) down
+to the 200ms epochs the pipeline expects, then runs the identical
+preprocessing/feature-engineering/classification steps used everywhere else.
+
+**Important caveat:** the model was trained on a wrist-worn sensor during
+barbell lifts. A phone held in the hand is a different signal domain
+(different device, placement, and units), so predictions on real phone data
+may not be accurate — this feature demonstrates the live-capture pipeline
+working end-to-end (real sensor → server → model → database), not that the
+model generalizes to phone-in-hand motion.
+
+Requires HTTPS (or `localhost`) and, on iOS 13+, an explicit permission
+prompt triggered by the "Start recording" button tap.
 
 ## How the synthetic data works (`synthetic_data.py`)
 For each exercise, real training data was used to calibrate: mean sensor

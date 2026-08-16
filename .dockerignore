@@ -6,4 +6,8 @@ workout.db
 .gitignore
 .env
 *.md
-.env
+tests/
+requirements-dev.txt
+.github/
+pytest.ini
+.pytest_cache/
